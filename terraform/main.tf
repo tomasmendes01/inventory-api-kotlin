@@ -100,3 +100,72 @@ resource "kubernetes_persistent_volume_claim" "postgres_data" {
     }
   }
 }
+
+resource "kubernetes_deployment" "inventory_api" {
+  metadata {
+    name = "inventory-api"
+  }
+  spec {
+    replicas = 1
+    selector {
+      match_labels = {
+        app = "inventory-api"
+      }
+    }
+    template {
+      metadata {
+        labels = {
+          app = "inventory-api"
+        }
+      }
+      spec {
+        container {
+          name = "inventory-api"
+          image = "inventory-api-kotlin-app:latest"
+          image_pull_policy = "Never"
+          env {
+            name = "SPRING_DATASOURCE_URL"
+            value = "jdbc:postgresql://postgres:5432/inv-api-db"
+          }
+          env {
+            name = "SPRING_DATASOURCE_USERNAME"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.postgres_credentials.metadata[0].name
+                key  = "POSTGRES_USER"
+              }
+            }
+          }
+          env {
+            name = "SPRING_DATASOURCE_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.postgres_credentials.metadata[0].name
+                key  = "POSTGRES_PASSWORD"
+              }
+            }
+          }
+          port {
+            container_port = 8080
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_service" "inventory-api" {
+  metadata {
+    name = "inventory-api"
+  }
+  spec {
+    type = "NodePort"
+    selector = {
+      app = "inventory-api"
+    }
+    port {
+      port = 8080
+      target_port = 8080
+    }
+  }
+}
