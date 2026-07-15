@@ -42,7 +42,7 @@ resource "kubernetes_deployment" "postgres" {
       }
       spec {
         container {
-          name = "postgres"
+          name  = "postgres"
           image = "postgres:latest"
           env_from {
             secret_ref {
@@ -51,6 +51,20 @@ resource "kubernetes_deployment" "postgres" {
           }
           port {
             container_port = 5432
+          }
+          volume_mount {
+            name       = "postgres-data"
+            mount_path = "/var/lib/postgresql/data"
+          }
+          env {
+            name  = "PGDATA"
+            value = "/var/lib/postgresql/data/pgdata"
+          }
+        }
+        volume {
+          name = "postgres-data"
+          persistent_volume_claim {
+            claim_name = kubernetes_persistent_volume_claim.postgres_data.metadata[0].name
           }
         }
       }
@@ -67,8 +81,22 @@ resource "kubernetes_service" "postgres" {
       app = "postgres"
     }
     port {
-      port = 5432
+      port        = 5432
       target_port = 5432
+    }
+  }
+}
+
+resource "kubernetes_persistent_volume_claim" "postgres_data" {
+  metadata {
+    name = "postgres-data"
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        storage = "1Gi"
+      }
     }
   }
 }
